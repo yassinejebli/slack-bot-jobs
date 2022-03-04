@@ -32,7 +32,7 @@ module.exports = function ({ user, openingJobs }) {
       text: {
         type: "mrkdwn",
         text:
-          "<https://boards.greenhouse.io/" + job.link + "|" + job.title + ">",
+          "<https://boards.greenhouse.io" + job.link + "|" + job.title + ">",
       },
     }))
   );
