@@ -1,3 +1,5 @@
+const { GREENHOUSE_BOARDS_URL } = require("./constants");
+
 module.exports = function ({ user, openingJobs }) {
   let blocks = [
     {
@@ -31,8 +33,7 @@ module.exports = function ({ user, openingJobs }) {
       type: "section",
       text: {
         type: "mrkdwn",
-        text:
-          "<https://boards.greenhouse.io" + job.link + "|" + job.title + ">",
+        text: "<" + GREENHOUSE_BOARDS_URL + job.link + "|" + job.title + ">",
       },
     }))
   );

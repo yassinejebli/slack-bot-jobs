@@ -1,6 +1,7 @@
 require("dotenv").config();
 const { App } = require("@slack/bolt");
 const { WebClient } = require("@slack/web-api");
+const { GREENHOUSE_BOARDS_URL } = require("./constants");
 const config = require("./config");
 const api = require("./api");
 const helpers = require("./helpers");
@@ -42,7 +43,8 @@ function postJobsToTheGeneralChannelWhenJobsAreUpdated() {
             await client.chat.postMessage({
               channel: config.generalChannelId,
               text:
-                "New job posted: <https://boards.greenhouse.io" +
+                "New job posted: <" +
+                GREENHOUSE_BOARDS_URL +
                 newOpeningJob.link +
                 "|" +
                 newOpeningJob.title +
