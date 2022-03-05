@@ -116,7 +116,7 @@ function postJobsToTheGeneralChannelWhenJobsAreUpdated() {
     } catch (error) {
       console.error(error);
     }
-  }, 8000);
+  }, 60000);
 }
 
 // Better to fetch/save users data from/in a DB.
