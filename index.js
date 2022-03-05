@@ -140,6 +140,7 @@ async function deleteUser(userId, teamId) {
 async function inviteUser(email, name, teamId) {
   return app.client.admin.users.invite({
     email,
+    channel_ids: config.generalChannelId,
     real_name: name,
     team_id: teamId,
     token: config.slackUserToken,
