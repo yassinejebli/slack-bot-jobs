@@ -1,6 +1,6 @@
 require("dotenv").config();
-const { App } = require("@slack/bolt");
-const { WebClient } = require("@slack/web-api");
+const cors = require("cors");
+const { App, ExpressReceiver } = require("@slack/bolt");
 const { GREENHOUSE_BOARDS_URL } = require("./constants");
 const config = require("./config");
 const api = require("./api");
@@ -8,11 +8,47 @@ const helpers = require("./helpers");
 const renderHome = require("./renderHome");
 const memoryCache = require("./memoryCache");
 
-const client = new WebClient(config.slackBotUserToken);
+const expressReceiver = new ExpressReceiver({
+  signingSecret: config.slignSigningSecret,
+});
+
+const expressApp = expressReceiver.app;
 
 const app = new App({
   signingSecret: config.slignSigningSecret,
-  token: config.slackBotUserToken,
+  token: config.slackBotToken,
+  receiver: expressReceiver,
+});
+
+expressApp.use(cors());
+
+expressApp.use(function (req, res, next) {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "application/x-www-form-urlencoded",
+    "Origin, X-Requested-Width, Content-Type, Accept, Authorization"
+  );
+  next();
+});
+
+// TODO: pagination
+expressApp.get("/users", async (req, res) => {
+  const users = await getUserList();
+  res.status(201).json(users);
+  res.end();
+});
+
+expressApp.delete("/users/:id", async (req, res) => {
+  try {
+    const teamId = (await app.client.team.info()).team.id;
+    await deleteUser(req.params.id, teamId);
+    res.sendStatus(200);
+  } catch (err) {
+    res.status(500).send(err);
+  } finally {
+    res.end();
+  }
 });
 
 app.event("app_home_opened", async ({ event, client }) => {
@@ -29,6 +65,7 @@ app.event("app_home_opened", async ({ event, client }) => {
 
 app.start(config.port || 3000).then(() => {
   console.log("App is running");
+  // return
   postJobsToTheGeneralChannelWhenJobsAreUpdated();
 });
 
@@ -40,7 +77,7 @@ function postJobsToTheGeneralChannelWhenJobsAreUpdated() {
       if (areOpeningJobsChanged) {
         Promise.all(
           openingJobsDelta.map(async (newOpeningJob) => {
-            await client.chat.postMessage({
+            await app.client.chat.postMessage({
               channel: config.generalChannelId,
               text:
                 "New job posted: <" +
@@ -59,4 +96,23 @@ function postJobsToTheGeneralChannelWhenJobsAreUpdated() {
       console.error(error);
     }
   }, 8000);
+}
+
+// Better to fetch/save users data in a DB.
+async function getUserList() {
+  try {
+    const result = await app.client.users.list();
+    return result.members;
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// administrative permissions needed for app.client.admin.users.remove method but Apps with this feature are only available to Enterprise customers (scope: admin.users:write)
+async function deleteUser(userId, teamId) {
+  return app.client.admin.users.remove({
+    team_id: teamId,
+    user_id: userId,
+    token: config.slackUserToken,
+  });
 }
