@@ -1,6 +1,7 @@
 require("dotenv").config();
-const cors = require("cors");
 const { App, ExpressReceiver } = require("@slack/bolt");
+const cors = require("cors");
+const bodyParser = require("body-parser");
 const { GREENHOUSE_BOARDS_URL } = require("./constants");
 const config = require("./config");
 const api = require("./api");
@@ -21,7 +22,7 @@ const app = new App({
 });
 
 expressApp.use(cors());
-
+expressApp.use(bodyParser.json());
 expressApp.use(function (req, res, next) {
   res.header("Access-Control-Allow-Origin", "*");
   res.setHeader(
@@ -34,16 +35,36 @@ expressApp.use(function (req, res, next) {
 
 // TODO: pagination
 expressApp.get("/users", async (req, res) => {
-  const users = await getUserList();
-  res.status(201).json(users);
-  res.end();
+  try {
+    const users = await getUserList();
+    res.status(201).json(users);
+  } catch (err) {
+    res.status(500).json(err);
+  } finally {
+    res.end();
+  }
 });
 
 expressApp.delete("/users/:id", async (req, res) => {
   try {
     const teamId = (await app.client.team.info()).team.id;
-    await deleteUser(req.params.id, teamId);
-    res.sendStatus(200);
+    const response = await deleteUser(req.params.id, teamId);
+    if (response.ok) res.sendStatus(200);
+    else res.sendStatus(500).send(response.error);
+  } catch (err) {
+    res.status(500).send(err);
+  } finally {
+    res.end();
+  }
+});
+
+// invite user
+expressApp.post("/users", async (req, res) => {
+  try {
+    const teamId = (await app.client.team.info()).team.id;
+    const response = await inviteUser(req.body.email, req.body.name, teamId);
+    if (response.ok) res.sendStatus(200);
+    else res.sendStatus(500).send(response.error);
   } catch (err) {
     res.status(500).send(err);
   } finally {
@@ -65,7 +86,7 @@ app.event("app_home_opened", async ({ event, client }) => {
 
 app.start(config.port || 3000).then(() => {
   console.log("App is running");
-  // return
+  // return;
   postJobsToTheGeneralChannelWhenJobsAreUpdated();
 });
 
@@ -98,7 +119,7 @@ function postJobsToTheGeneralChannelWhenJobsAreUpdated() {
   }, 8000);
 }
 
-// Better to fetch/save users data in a DB.
+// Better to fetch/save users data from/in a DB.
 async function getUserList() {
   try {
     const result = await app.client.users.list();
@@ -108,7 +129,7 @@ async function getUserList() {
   }
 }
 
-// administrative permissions needed for app.client.admin.users.remove method but Apps with this feature are only available to Enterprise customers (scope: admin.users:write)
+//------ administrative permissions needed for app.client.admin.users.remove method but Apps with this feature are only available to Enterprise customers (scope: admin.users:write)
 async function deleteUser(userId, teamId) {
   return app.client.admin.users.remove({
     team_id: teamId,
@@ -116,3 +137,12 @@ async function deleteUser(userId, teamId) {
     token: config.slackUserToken,
   });
 }
+async function inviteUser(email, name, teamId) {
+  return app.client.admin.users.invite({
+    email,
+    real_name: name,
+    team_id: teamId,
+    token: config.slackUserToken,
+  });
+}
+//-------
