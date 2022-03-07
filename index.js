@@ -72,6 +72,18 @@ expressApp.post("/users", async (req, res) => {
   }
 });
 
+expressApp.post("/message-general", async (req, res) => {
+  try {
+    const response = await sendMessageToGeneralChannel(req.body.message);
+    if (response.ok) res.sendStatus(200);
+    else res.sendStatus(500).send(response.error);
+  } catch (err) {
+    res.status(500).send(err);
+  } finally {
+    res.end();
+  }
+});
+
 app.event("app_home_opened", async ({ event, client }) => {
   try {
     const openingJobsHTML = await api.fetchOpeningJobs();
@@ -119,6 +131,13 @@ function postJobsToTheGeneralChannelWhenJobsAreUpdated() {
   }, 60000);
 }
 
+function sendMessageToGeneralChannel(message) {
+  return app.client.chat.postMessage({
+    channel: config.generalChannelId,
+    text: message,
+  });
+}
+
 // Better to fetch/save users data from/in a DB.
 async function getUserList() {
   try {
@@ -130,14 +149,14 @@ async function getUserList() {
 }
 
 //------ administrative permissions needed for app.client.admin.users.remove method but Apps with this feature are only available to Enterprise customers (scope: admin.users:write)
-async function deleteUser(userId, teamId) {
+function deleteUser(userId, teamId) {
   return app.client.admin.users.remove({
     team_id: teamId,
     user_id: userId,
     token: config.slackUserToken,
   });
 }
-async function inviteUser(email, name, teamId) {
+function inviteUser(email, name, teamId) {
   return app.client.admin.users.invite({
     email,
     channel_ids: config.generalChannelId,
